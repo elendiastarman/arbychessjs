@@ -219,6 +219,7 @@ class StandardChess {
   initGraphics(root) {
     let board = document.createElementNS('http://www.w3.org/2000/svg', 'g'),
         pieces = document.createElementNS('http://www.w3.org/2000/svg', 'g'),
+        underlay = document.createElementNS('http://www.w3.org/2000/svg', 'g'),
         cellSize = parseInt(root.getAttribute('width')) / this.board.size;
 
     this.board.cellSize = cellSize;
@@ -249,8 +250,10 @@ class StandardChess {
     })
 
     this.attachBoardEventListeners(root);
+    underlay.setAttribute('id', 'underlay');
 
     root.appendChild(board);
+    root.appendChild(underlay);
     root.appendChild(pieces);
   }
 
@@ -275,6 +278,9 @@ class StandardChess {
         this.floating.piece.icon.setAttribute('y', boardY * this.board.cellSize);
 
         this.floating.piece = null;
+        let highlights = document.getElementById('underlay').firstChild;
+        highlights.remove();
+
       } else {
         let cell = this.board.cellMap[boardX + '_' + boardY];
 
@@ -286,6 +292,32 @@ class StandardChess {
           console.log('here goes')
           this.floating.validMoves = this.calculateValidMoves(cell.occupier.piece, cell.occupier.coords);
           console.log(this.floating.validMoves);
+
+          let underlay = document.getElementById('underlay'),
+              inner = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          underlay.appendChild(inner);
+
+          for (let key in this.floating.validMoves) {
+            console.log('key', key)
+            let [kx, ky] = key.split('_'),
+                x = parseInt(kx),
+                y = parseInt(ky),
+                place = this.floating.validMoves[key].place,
+                capture = this.floating.validMoves[key].capture;
+
+            let highlight = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+
+            highlight.setAttribute('x', x * this.board.cellSize + 'px');
+            highlight.setAttribute('y', y * this.board.cellSize + 'px');
+            highlight.setAttribute('width', this.board.cellSize + 'px');
+            highlight.setAttribute('height', this.board.cellSize + 'px');
+
+            highlight.style.stroke = place ? 'green' : capture ? 'red' : 'blue';
+            highlight.style.strokeWidth = '3px';
+            highlight.style.fill = 'none';
+
+            inner.appendChild(highlight);
+          }
         }
       }
     })
@@ -321,7 +353,7 @@ class StandardChess {
 
       let newCoords = this.board.transform(coords, move);
       if (!newCoords)
-        return;
+        continue;
 
       let coordsKey = newCoords.x + '_' + newCoords.y;
 
