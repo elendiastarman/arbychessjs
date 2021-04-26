@@ -4,7 +4,7 @@
 class Move {
   constructor(vector, options) {
     this.vector = vector;
-    this.options = options || {};
+    this.options = options != undefined ? options : {};
 
     // -1 for "as far as possible" (e.g. queen) and 1 for "one step" (e.g. king)
     this.momentum = this.options.momentum != undefined ? this.options.momentum : -1;
@@ -68,7 +68,7 @@ class SquareGrid extends Board {
   isValidCoords(coords) {
     if (coords.x < 0 || coords.y < 0)
       return false;
-    if (coords.x > this.size || coords.y > this.size)
+    if (coords.x >= this.size || coords.y >= this.size)
       return false;
 
     return true;
@@ -90,19 +90,12 @@ class SquareGrid extends Board {
     movements.forEach(move => {
       newMovements.push(move);
 
-      let flip = move.copy()
-      flip.vector.dx = -move.vector.dx;
-      flip.vector.dy = -move.vector.dy;
+      let flip = new Move({dx: -move.vector.dx, dy: -move.vector.dy}, move.options);
+      let rot = new Move({dx: move.vector.dy, dy: -move.vector.dx}, move.options);
+      let rotinv = new Move({dx: -move.vector.dy, dy: move.vector.dx}, move.options);
+
       newMovements.push(flip);
-
-      let rot = move.copy()
-      rot.vector.dx = move.vector.dy;
-      rot.vector.dy = -move.vector.dx;
       newMovements.push(rot);
-
-      let rotinv = move.copy()
-      rotinv.vector.dx = -move.vector.dy;
-      rotinv.vector.dy = move.vector.dx;
       newMovements.push(rotinv);
     })
 
@@ -123,7 +116,11 @@ class Piece {
   }
 }
 
-class Player {}
+class Player {
+  constructor(name) {
+    this.name = name;
+  }
+}
 
 class StandardChess {
   constructor() {
@@ -290,7 +287,7 @@ class StandardChess {
           this.floating.startY = event.offsetY - event.offsetX % this.board.cellSize + this.board.cellSize / 2;
 
           console.log('here goes')
-          this.floating.validMoves = this.calculateValidMoves(cell.occupier.piece, cell.occupier.coords);
+          this.floating.validMoves = this.calculateValidMoves(cell.occupier);
           console.log(this.floating.validMoves);
 
           let underlay = document.getElementById('underlay'),
@@ -298,7 +295,6 @@ class StandardChess {
           underlay.appendChild(inner);
 
           for (let key in this.floating.validMoves) {
-            console.log('key', key)
             let [kx, ky] = key.split('_'),
                 x = parseInt(kx),
                 y = parseInt(ky),
@@ -332,16 +328,16 @@ class StandardChess {
     })
   }
 
-  calculateValidMoves(piece, coords) {
+  calculateValidMoves(piece) {
     // returns a list of valid coords
     let seenCoords = {},
         validCoords = {},
         moveQueue = [];
 
-    seenCoords[coords.x + '_' + coords.y] = [];
+    seenCoords[piece.coords.x + '_' + piece.coords.y] = [];
 
-    piece.movements.forEach(move => {
-      moveQueue.push([coords, move]);
+    piece.piece.movements.forEach(move => {
+      moveQueue.push([piece.coords, move]);
     })
 
     let index = -1;
@@ -378,6 +374,8 @@ class StandardChess {
 
       if (occupier) {
         // check capture ability
+        if (move.canCapture)
+          console.log(move, piece, occupier)
         if (move.canCapture && piece.player != occupier.player)
           validAction = {capture: true};
 
