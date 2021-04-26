@@ -7,13 +7,16 @@ class Move {
     this.options = options || {};
 
     // -1 for "as far as possible" (e.g. queen) and 1 for "one step" (e.g. king)
-    this.momentum = this.options.momentum || -1;
+    this.momentum = this.options.momentum != undefined ? this.options.momentum : -1;
 
     // whether a piece can move to different coords without capturing (e.g. pawn's forward move)
-    this.canReposition = this.options.canReposition || true;
+    this.canPlace = this.options.canPlace != undefined ? this.options.canPlace : true;
 
     // whether a piece can capture with this move (e.g. pawn's diagonal capture)
-    this.canCapture = this.options.canCapture || true;
+    this.canCapture = this.options.canCapture != undefined ? this.options.canCapture : true;
+
+    // whether a piece can have change the direction it's going (no standard pieces have this)
+    this.canTurn = this.options.canTurn != undefined ? this.options.canTurn : false;
   }
 
   copy() {
@@ -30,6 +33,13 @@ class SquareGrid extends Board {
   constructor(size) {
     super()
     this.size = size;
+
+    this.cellMap = {};
+    for (let x = 0; x < this.size; x += 1) {
+      for (let y = 0; y < this.size; y += 1) {
+        this.cellMap[x + '_' + y] = {};
+      }
+    }
   }
 
   initTiles(cellSize) {
@@ -65,8 +75,14 @@ class SquareGrid extends Board {
   }
 
   transform(coords, movement) {
-    coords.x += movement.vector.dx;
-    coords.y += movement.vector.dy;
+    let newCoords = {
+      x: coords.x + movement.vector.dx,
+      y: coords.y + movement.vector.dy,
+    }
+
+    if (!this.isValidCoords(newCoords))
+      return null;
+    return newCoords;
   }
 
   rotate4(movements) {
@@ -133,13 +149,13 @@ class StandardChess {
       ])),
       wpawn: new Piece('pawn', [
         new Move({dx: 0, dy: 1}, {momentum: 1, canCapture: false}),
-        new Move({dx: 1, dy: 1}, {momentum: 1, canReposition: false}),
-        new Move({dx: -1, dy: 1}, {momentum: 1, canReposition: false}),
+        new Move({dx: 1, dy: 1}, {momentum: 1, canPlace: false}),
+        new Move({dx: -1, dy: 1}, {momentum: 1, canPlace: false}),
       ]),
       bpawn: new Piece('pawn', [
         new Move({dx: 0, dy: -1}, {momentum: 1, canCapture: false}),
-        new Move({dx: 1, dy: -1}, {momentum: 1, canReposition: false}),
-        new Move({dx: -1, dy: -1}, {momentum: 1, canReposition: false}),
+        new Move({dx: 1, dy: -1}, {momentum: 1, canPlace: false}),
+        new Move({dx: -1, dy: -1}, {momentum: 1, canPlace: false}),
       ]),
     };
 
@@ -188,10 +204,15 @@ class StandardChess {
       px += 1;
       player = ('KQRBNP'.indexOf(char) > -1) ? 'white' : 'black';
 
-      this.pieces[player].push({
+      let instance = {
         piece: piece,
+        player: player,
         coords: {x: px, y: py},
-      })
+        icon: null,
+      }
+
+      this.pieces[player].push(instance);
+      this.board.cellMap[px + '_' + py].occupier = instance;
     })
   }
 
@@ -200,6 +221,7 @@ class StandardChess {
         pieces = document.createElementNS('http://www.w3.org/2000/svg', 'g'),
         cellSize = parseInt(root.getAttribute('width')) / this.board.size;
 
+    this.board.cellSize = cellSize;
     this.board.initTiles(cellSize).forEach(tile => board.appendChild(tile));
 
     let pieceImages = {
@@ -221,12 +243,134 @@ class StandardChess {
         icon.setAttribute('height', cellSize);
         icon.setAttribute('href', 'svgs/' + pieceImages[piece.piece.name][player]);
 
+        piece.icon = icon;
         pieces.appendChild(icon);
       })
     })
 
+    this.attachBoardEventListeners(root);
+
     root.appendChild(board);
     root.appendChild(pieces);
+  }
+
+  attachBoardEventListeners(board) {
+    this.floating = {}
+
+    board.addEventListener('mousedown', event => {
+      let boardX = parseInt(event.offsetX / this.board.cellSize),
+          boardY = parseInt(event.offsetY / this.board.cellSize);
+
+      if (this.floating.piece) {
+        let oldX = this.floating.piece.coords.x,
+            oldY = this.floating.piece.coords.y;
+
+        this.board.cellMap[oldX + '_' + oldY].occupier = null;
+        this.board.cellMap[boardX + '_' + boardY].occupier = this.floating.piece;
+
+        this.floating.piece.coords.x = boardX;
+        this.floating.piece.coords.y = boardY;
+
+        this.floating.piece.icon.setAttribute('x', boardX * this.board.cellSize);
+        this.floating.piece.icon.setAttribute('y', boardY * this.board.cellSize);
+
+        this.floating.piece = null;
+      } else {
+        let cell = this.board.cellMap[boardX + '_' + boardY];
+
+        if (cell.occupier) {
+          this.floating.piece = cell.occupier;
+          this.floating.startX = event.offsetX - event.offsetX % this.board.cellSize + this.board.cellSize / 2;
+          this.floating.startY = event.offsetY - event.offsetX % this.board.cellSize + this.board.cellSize / 2;
+
+          console.log('here goes')
+          this.floating.validMoves = this.calculateValidMoves(cell.occupier.piece, cell.occupier.coords);
+          console.log(this.floating.validMoves);
+        }
+      }
+    })
+
+    board.addEventListener('mousemove', event => {
+      if (this.floating.piece) {
+        let screenX = this.floating.piece.coords.x * this.board.cellSize + event.offsetX - this.floating.startX,
+            screenY = this.floating.piece.coords.y * this.board.cellSize + event.offsetY - this.floating.startY;
+        this.floating.piece.icon.setAttribute('x', screenX);
+        this.floating.piece.icon.setAttribute('y', screenY);
+      }
+    })
+  }
+
+  calculateValidMoves(piece, coords) {
+    // returns a list of valid coords
+    let seenCoords = {},
+        validCoords = {},
+        moveQueue = [];
+
+    seenCoords[coords.x + '_' + coords.y] = [];
+
+    piece.movements.forEach(move => {
+      moveQueue.push([coords, move]);
+    })
+
+    let index = -1;
+    while (index < moveQueue.length - 1) {
+      index += 1;
+
+      let [coords, move] = moveQueue[index];
+      console.log(coords, move);
+
+      let newCoords = this.board.transform(coords, move);
+      if (!newCoords)
+        return;
+
+      let coordsKey = newCoords.x + '_' + newCoords.y;
+
+      // if we've been here with this move before, skip
+      let priorMoves = seenCoords[coordsKey];
+      if (priorMoves) {
+        let skip = false;
+
+        for (let i = 0; i < priorMoves.length; i += 1) {
+          if (priorMoves[i] == move)
+            skip = true;
+        }
+
+        if (skip)
+          continue;
+      } else {
+        seenCoords[coordsKey] = [];
+      }
+
+      let occupier = this.board.cellMap[coordsKey].occupier,
+          validAction = null;
+
+      if (occupier) {
+        // check capture ability
+        if (move.canCapture && piece.player != occupier.player)
+          validAction = {capture: true};
+
+      } else {
+        if (move.canPlace)
+          validAction = {place: true};
+
+        // add further moves to the moveQueue if any
+        if (move.canTurn) {
+          piece.movements.forEach(move => moveQueue.push([newCoords, move]));
+        } else if (move.momentum == -1 || move.momentum > 1) {
+          let nextMove = move.copy();
+          if (move.momentum > 1)
+            nextMove.momentum -= 1;
+
+          moveQueue.push([newCoords, nextMove])
+        }
+      }
+
+      seenCoords[coordsKey].push(move);
+      if (validAction)
+        validCoords[coordsKey] = validAction;
+    }
+
+    return validCoords;
   }
 
   perform(player, piece, move) {}
