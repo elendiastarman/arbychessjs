@@ -197,11 +197,36 @@ class StandardChess {
 
   initGraphics(root) {
     let board = document.createElementNS('http://www.w3.org/2000/svg', 'g'),
+        pieces = document.createElementNS('http://www.w3.org/2000/svg', 'g'),
         cellSize = parseInt(root.getAttribute('width')) / this.board.size;
 
     this.board.initTiles(cellSize).forEach(tile => board.appendChild(tile));
 
+    let pieceImages = {
+      king: {white: 'Chess_klt45.svg', black: 'Chess_kdt45.svg'},
+      queen: {white: 'Chess_qlt45.svg', black: 'Chess_qdt45.svg'},
+      rook: {white: 'Chess_rlt45.svg', black: 'Chess_rdt45.svg'},
+      bishop: {white: 'Chess_blt45.svg', black: 'Chess_bdt45.svg'},
+      knight: {white: 'Chess_nlt45.svg', black: 'Chess_ndt45.svg'},
+      pawn: {white: 'Chess_plt45.svg', black: 'Chess_pdt45.svg'},
+    }
+
+    this.playerCycle.forEach(player => {
+      this.pieces[player].forEach(piece => {
+        let icon = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+
+        icon.setAttribute('x', piece.coords.x * cellSize);
+        icon.setAttribute('y', piece.coords.y * cellSize);
+        icon.setAttribute('width', cellSize);
+        icon.setAttribute('height', cellSize);
+        icon.setAttribute('href', 'svgs/' + pieceImages[piece.piece.name][player]);
+
+        pieces.appendChild(icon);
+      })
+    })
+
     root.appendChild(board);
+    root.appendChild(pieces);
   }
 
   perform(player, piece, move) {}
