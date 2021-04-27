@@ -269,17 +269,18 @@ class StandardChess {
           oldY = this.floating.piece.coords.y,
           validAction = this.floating.validMoves[boardX + '_' + boardY];
 
-      console.log('validAction',validAction)
       if (validAction) {
         if (validAction.capture) {
           let victim = this.board.cellMap[boardX + '_' + boardY].occupier;
           victim.icon.remove();
         }
 
+        // cycle to the next player
         let player = this.playerCycle[0];
         this.playerCycle = this.playerCycle.slice(1);
         this.playerCycle.push(player);
 
+        // new position for piece
         this.board.cellMap[oldX + '_' + oldY].occupier = null;
         this.board.cellMap[boardX + '_' + boardY].occupier = this.floating.piece;
 
@@ -289,6 +290,7 @@ class StandardChess {
         this.floating.piece.icon.setAttribute('x', boardX * this.board.cellSize);
         this.floating.piece.icon.setAttribute('y', boardY * this.board.cellSize);
       } else {
+        // reset icon location
         this.floating.piece.icon.setAttribute('x', oldX * this.board.cellSize);
         this.floating.piece.icon.setAttribute('y', oldY * this.board.cellSize);
       }
@@ -320,10 +322,10 @@ class StandardChess {
 
           let highlight = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
 
-          highlight.setAttribute('x', x * this.board.cellSize + 'px');
-          highlight.setAttribute('y', y * this.board.cellSize + 'px');
-          highlight.setAttribute('width', this.board.cellSize + 'px');
-          highlight.setAttribute('height', this.board.cellSize + 'px');
+          highlight.setAttribute('x', x * this.board.cellSize + 2 + 'px');
+          highlight.setAttribute('y', y * this.board.cellSize + 2 + 'px');
+          highlight.setAttribute('width', this.board.cellSize - 4 + 'px');
+          highlight.setAttribute('height', this.board.cellSize - 4 + 'px');
 
           highlight.style.stroke = place ? 'green' : capture ? 'red' : 'blue';
           highlight.style.strokeWidth = '3px';
@@ -363,7 +365,6 @@ class StandardChess {
       index += 1;
 
       let [coords, move] = moveQueue[index];
-      console.log(coords, move);
 
       let newCoords = this.board.transform(coords, move);
       if (!newCoords)
@@ -392,8 +393,6 @@ class StandardChess {
 
       if (occupier) {
         // check capture ability
-        if (move.canCapture)
-          console.log(move, piece, occupier)
         if (move.canCapture && piece.player != occupier.player)
           validAction = {capture: true};
 
