@@ -255,15 +255,26 @@ class StandardChess {
   }
 
   attachBoardEventListeners(board) {
-    this.floating = {}
+    this.floating = {};
+    board.addEventListener('mousedown', this.mousedown.bind(this));
+    board.addEventListener('mousemove', this.mousemove.bind(this));
+  }
 
-    board.addEventListener('mousedown', event => {
-      let boardX = parseInt(event.offsetX / this.board.cellSize),
-          boardY = parseInt(event.offsetY / this.board.cellSize);
+  mousedown(event) {
+    let boardX = parseInt(event.offsetX / this.board.cellSize),
+        boardY = parseInt(event.offsetY / this.board.cellSize);
 
-      if (this.floating.piece) {
-        let oldX = this.floating.piece.coords.x,
-            oldY = this.floating.piece.coords.y;
+    if (this.floating.piece) {
+      let oldX = this.floating.piece.coords.x,
+          oldY = this.floating.piece.coords.y,
+          validAction = this.floating.validMoves[boardX + '_' + boardY];
+
+      console.log('validAction',validAction)
+      if (validAction) {
+        if (validAction.capture) {
+          let victim = this.board.cellMap[boardX + '_' + boardY].occupier;
+          victim.icon.remove();
+        }
 
         this.board.cellMap[oldX + '_' + oldY].occupier = null;
         this.board.cellMap[boardX + '_' + boardY].occupier = this.floating.piece;
@@ -273,59 +284,64 @@ class StandardChess {
 
         this.floating.piece.icon.setAttribute('x', boardX * this.board.cellSize);
         this.floating.piece.icon.setAttribute('y', boardY * this.board.cellSize);
-
-        this.floating.piece = null;
-        let highlights = document.getElementById('underlay').firstChild;
-        highlights.remove();
-
       } else {
-        let cell = this.board.cellMap[boardX + '_' + boardY];
+        this.floating.piece.icon.setAttribute('x', oldX * this.board.cellSize);
+        this.floating.piece.icon.setAttribute('y', oldY * this.board.cellSize);
+      }
 
-        if (cell.occupier) {
-          this.floating.piece = cell.occupier;
-          this.floating.startX = event.offsetX - event.offsetX % this.board.cellSize + this.board.cellSize / 2;
-          this.floating.startY = event.offsetY - event.offsetX % this.board.cellSize + this.board.cellSize / 2;
+      this.floating.piece = null;
+      let highlights = document.getElementById('underlay').firstChild;
+      highlights.remove();
 
-          console.log('here goes')
-          this.floating.validMoves = this.calculateValidMoves(cell.occupier);
-          console.log(this.floating.validMoves);
+    } else {
+      let cell = this.board.cellMap[boardX + '_' + boardY];
 
-          let underlay = document.getElementById('underlay'),
-              inner = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-          underlay.appendChild(inner);
+      if (cell.occupier) {
+        this.floating.piece = cell.occupier;
+        this.floating.startX = event.offsetX - event.offsetX % this.board.cellSize + this.board.cellSize / 2;
+        this.floating.startY = event.offsetY - event.offsetX % this.board.cellSize + this.board.cellSize / 2;
 
-          for (let key in this.floating.validMoves) {
-            let [kx, ky] = key.split('_'),
-                x = parseInt(kx),
-                y = parseInt(ky),
-                place = this.floating.validMoves[key].place,
-                capture = this.floating.validMoves[key].capture;
+        console.log('here goes')
+        this.floating.validMoves = this.calculateValidMoves(cell.occupier);
+        console.log(this.floating.validMoves);
 
-            let highlight = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        let underlay = document.getElementById('underlay'),
+            inner = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        underlay.appendChild(inner);
 
-            highlight.setAttribute('x', x * this.board.cellSize + 'px');
-            highlight.setAttribute('y', y * this.board.cellSize + 'px');
-            highlight.setAttribute('width', this.board.cellSize + 'px');
-            highlight.setAttribute('height', this.board.cellSize + 'px');
+        for (let key in this.floating.validMoves) {
+          let [kx, ky] = key.split('_'),
+              x = parseInt(kx),
+              y = parseInt(ky),
+              place = this.floating.validMoves[key].place,
+              capture = this.floating.validMoves[key].capture;
 
-            highlight.style.stroke = place ? 'green' : capture ? 'red' : 'blue';
-            highlight.style.strokeWidth = '3px';
-            highlight.style.fill = 'none';
+          let highlight = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
 
-            inner.appendChild(highlight);
-          }
+          highlight.setAttribute('x', x * this.board.cellSize + 'px');
+          highlight.setAttribute('y', y * this.board.cellSize + 'px');
+          highlight.setAttribute('width', this.board.cellSize + 'px');
+          highlight.setAttribute('height', this.board.cellSize + 'px');
+
+          highlight.style.stroke = place ? 'green' : capture ? 'red' : 'blue';
+          highlight.style.strokeWidth = '3px';
+          highlight.style.fill = 'none';
+
+          inner.appendChild(highlight);
         }
       }
-    })
 
-    board.addEventListener('mousemove', event => {
-      if (this.floating.piece) {
-        let screenX = this.floating.piece.coords.x * this.board.cellSize + event.offsetX - this.floating.startX,
-            screenY = this.floating.piece.coords.y * this.board.cellSize + event.offsetY - this.floating.startY;
-        this.floating.piece.icon.setAttribute('x', screenX);
-        this.floating.piece.icon.setAttribute('y', screenY);
-      }
-    })
+      this.mousemove(event);
+    }
+  }
+
+  mousemove(event) {
+    if (this.floating.piece) {
+      let screenX = this.floating.piece.coords.x * this.board.cellSize + event.offsetX - this.floating.startX,
+          screenY = this.floating.piece.coords.y * this.board.cellSize + event.offsetY - this.floating.startY;
+      this.floating.piece.icon.setAttribute('x', screenX);
+      this.floating.piece.icon.setAttribute('y', screenY);
+    }
   }
 
   calculateValidMoves(piece) {
