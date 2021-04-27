@@ -276,6 +276,10 @@ class StandardChess {
           victim.icon.remove();
         }
 
+        let player = this.playerCycle[0];
+        this.playerCycle = this.playerCycle.slice(1);
+        this.playerCycle.push(player);
+
         this.board.cellMap[oldX + '_' + oldY].occupier = null;
         this.board.cellMap[boardX + '_' + boardY].occupier = this.floating.piece;
 
@@ -296,19 +300,17 @@ class StandardChess {
     } else {
       let cell = this.board.cellMap[boardX + '_' + boardY];
 
-      if (cell.occupier) {
+      if (cell.occupier && cell.occupier.player == this.playerCycle[0]) {
         this.floating.piece = cell.occupier;
         this.floating.startX = event.offsetX - event.offsetX % this.board.cellSize + this.board.cellSize / 2;
         this.floating.startY = event.offsetY - event.offsetX % this.board.cellSize + this.board.cellSize / 2;
-
-        console.log('here goes')
         this.floating.validMoves = this.calculateValidMoves(cell.occupier);
-        console.log(this.floating.validMoves);
 
         let underlay = document.getElementById('underlay'),
             inner = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         underlay.appendChild(inner);
 
+        // highlight the valid moves
         for (let key in this.floating.validMoves) {
           let [kx, ky] = key.split('_'),
               x = parseInt(kx),
@@ -329,9 +331,9 @@ class StandardChess {
 
           inner.appendChild(highlight);
         }
-      }
 
-      this.mousemove(event);
+        this.mousemove(event);
+      }
     }
   }
 
