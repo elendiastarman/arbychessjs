@@ -172,12 +172,12 @@ class StandardChess extends Variant {
 
     // 2-square move
     this.basePieces.wpawn.specialMoves = (piece) => {
-      return (piece.piece.history.length > 0) ? [] : [
+      return (piece.base.history.length > 0) ? [] : [
         [piece.coords, new Move({dx: 0, dy: 1}, {momentum: 2, canCapture: false})],
       ];
     };
     this.basePieces.bpawn.specialMoves = (piece) => {
-      return (piece.piece.history.length > 0) ? [] : [
+      return (piece.base.history.length > 0) ? [] : [
         [piece.coords, new Move({dx: 0, dy: -1}, {momentum: 2, canCapture: false})],
       ];
     };
@@ -198,7 +198,7 @@ class StandardChess extends Variant {
 
     let startFEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR',
         px = -1, py = 7,
-        piece = null,
+        base = null,
         player = null;
 
     startFEN.split('').forEach(char => {
@@ -208,19 +208,19 @@ class StandardChess extends Variant {
         return;
       }
       else if (char == 'K' || char == 'k')
-        piece = this.basePieces.king.copy()
+        base = this.basePieces.king.copy()
       else if (char == 'Q' || char == 'q')
-        piece = this.basePieces.queen.copy()
+        base = this.basePieces.queen.copy()
       else if (char == 'R' || char == 'r')
-        piece = this.basePieces.rook.copy()
+        base = this.basePieces.rook.copy()
       else if (char == 'B' || char == 'b')
-        piece = this.basePieces.bishop.copy()
+        base = this.basePieces.bishop.copy()
       else if (char == 'N' || char == 'n')
-        piece = this.basePieces.knight.copy()
+        base = this.basePieces.knight.copy()
       else if (char == 'P')
-        piece = this.basePieces.wpawn.copy()
+        base = this.basePieces.wpawn.copy()
       else if (char == 'p')
-        piece = this.basePieces.bpawn.copy()
+        base = this.basePieces.bpawn.copy()
       else {
         px += parseInt(char);
         return;
@@ -229,15 +229,15 @@ class StandardChess extends Variant {
       px += 1;
       player = ('KQRBNP'.indexOf(char) > -1) ? 'white' : 'black';
 
-      let instance = {
-        piece: piece,
+      let piece = {
+        base: base,
         player: player,
         coords: {x: px, y: py},
         icon: null,
       }
 
-      this.pieces[player].push(instance);
-      this.board.cellMap[px + '_' + py].occupier = instance;
+      this.pieces[player].push(piece);
+      this.board.cellMap[px + '_' + py].occupier = piece;
     })
   }
 
@@ -267,7 +267,7 @@ class StandardChess extends Variant {
         icon.setAttribute('y', piece.coords.y * cellSize);
         icon.setAttribute('width', cellSize);
         icon.setAttribute('height', cellSize);
-        icon.setAttribute('href', 'svgs/' + pieceImages[piece.piece.name][player]);
+        icon.setAttribute('href', 'svgs/' + pieceImages[piece.base.name][player]);
 
         piece.icon = icon;
         pieces.appendChild(icon);
@@ -299,7 +299,7 @@ class StandardChess extends Variant {
 
       if (validAction) {
         this.history.push(validAction);
-        this.floating.piece.piece.history.push(validAction);
+        this.floating.piece.base.history.push(validAction);
 
         if (validAction.capture) {
           validAction.victim.icon.remove();
@@ -386,7 +386,7 @@ class StandardChess extends Variant {
 
     seenCoords[piece.coords.x + '_' + piece.coords.y] = [];
 
-    piece.piece.movements.forEach(move => {
+    piece.base.movements.forEach(move => {
       moveQueue.push([piece.coords, move]);
     })
 
@@ -459,12 +459,12 @@ class StandardChess extends Variant {
   }
 
   addSpecialMoves(piece, seenCoords, validCoords, moveQueue) {
-    if (piece.piece.specialMoves)
-      piece.piece.specialMoves(piece).forEach(move => moveQueue.push(move));
+    if (piece.base.specialMoves)
+      piece.base.specialMoves(piece).forEach(move => moveQueue.push(move));
   }
 
   rejectInvalidMoves(piece, seenCoords, validCoords, moveQueue) {
-    if (piece.piece.name == 'king') {
+    if (piece.base.name == 'king') {
       // check
       // castle through check
     } else {
